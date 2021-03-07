@@ -27,8 +27,11 @@ func main() {
 	// fmt.Println("Starting a Server Streaming RPC request. . .")
 	// doServerStreaming(c)
 
-	fmt.Println("Starting a Client Streaming RPC request. . .")
-	doClientStreaming(c)
+	// fmt.Println("Starting a Client Streaming RPC request. . .")
+	// doClientStreaming(c)
+
+	fmt.Println("Starting a BiDi Streaming RPC request. . .")
+	doBiDiStreaming(c)
 }
 
 func doServerStreaming(c greetpb.GreetServiceClient) {
@@ -84,4 +87,45 @@ func doClientStreaming(c greetpb.GreetServiceClient) {
 		log.Fatalf("error while receive server res")
 	}
 	fmt.Printf("Server LongGreeet response : %v", res.GetResult())
+}
+func doBiDiStreaming(c greetpb.GreetServiceClient) {
+	//Create a stream by invokeing the client
+	stream, err := c.GreetEveryone(context.Background())
+	if err != nil {
+		log.Fatalf("error while calling GreetEveryone from RPC server")
+		return
+	}
+	waitChannel := make(chan struct{})
+	reqs := []*greetpb.GreetEveryoneRequest{
+		{Greeting: &greetpb.Greeting{FirstName: "Thong", LastName: "Tran Quoc"}},
+		{Greeting: &greetpb.Greeting{FirstName: "Anh", LastName: "Nguyen"}},
+		{Greeting: &greetpb.Greeting{FirstName: "Bao", LastName: "Nguyen"}},
+		{Greeting: &greetpb.Greeting{FirstName: "Duy", LastName: "Nguyen"}},
+	}
+	//Send a bunch of messages to client (gorountine)
+	go func() {
+		for _, req := range reqs {
+			fmt.Printf("Sending request %v\n", req)
+			stream.Send(req)
+			time.Sleep(time.Millisecond * 500)
+		}
+		stream.CloseSend()
+	}()
+	//Receive a bunch of messages from client (gorountine)
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatalf("error while receiving server stream: %v", err)
+				break
+			}
+			log.Printf("Response from GreetEveryone rpc server : \n%s\n", res.GetResult())
+		}
+		close(waitChannel)
+	}()
+	//Block until everything is done
+	<-waitChannel
 }
