@@ -9,6 +9,8 @@ import (
 
 	"github.com/thogtq/golang-grpc-greet-demo/m/v2/calculator/calculatorpb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func main() {
@@ -29,8 +31,11 @@ func main() {
 
 	// fmt.Println("Starting a Client Streaming RPC request. . .")
 	// doClientStreaming(c)
-	fmt.Println("Starting a BiDi Streaming RPC request. . .")
-	doBidiStreaming(c)
+
+	// fmt.Println("Starting a BiDi Streaming RPC request. . .")
+	// doBidiStreaming(c)
+
+	doErrorUnary(c)
 }
 func doUnary(c calculatorpb.CalculatorServiceClient) {
 	req := &calculatorpb.SumRequest{
@@ -125,4 +130,26 @@ func doBidiStreaming(c calculatorpb.CalculatorServiceClient) {
 		close(waitChannel)
 	}()
 	<-waitChannel
+}
+func doErrorUnary(c calculatorpb.CalculatorServiceClient) {
+	//This function implementation with gRPC error handling
+	req := &calculatorpb.SquareRootRequest{
+		Number: -16,
+	}
+	res, err := c.SquareRoot(context.Background(), req)
+	if err != nil {
+		respErr, ok := status.FromError(err)
+		if ok {
+			if respErr.Code() == codes.InvalidArgument {
+				fmt.Printf("Don't try to send negative number to SquareRoot : %v\n", req.GetNumber())
+				return
+			}
+			fmt.Println(respErr.Message())
+			fmt.Println(respErr.Code())
+			return
+		}
+		log.Fatalf("error while calling SquareRoot RPC : %v", err)
+		return
+	}
+	log.Printf("Response from SquareRoot RPC server : %v", res.GetNumberRoot())
 }
