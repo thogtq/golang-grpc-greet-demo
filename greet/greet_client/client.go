@@ -10,12 +10,28 @@ import (
 	"github.com/thogtq/golang-grpc-greet-demo/m/v2/greet/greetpb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 )
 
+const requiredSercureConn = true
+
 func main() {
-	fmt.Println("Hello i'm client")
-	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
+	connOpts := []grpc.DialOption{}
+	//SSL establishing
+	if requiredSercureConn {
+		const certFile = "../../ssl/ca.crt"
+		creds, sslErr := credentials.NewClientTLSFromFile(certFile, "")
+		if sslErr != nil {
+			log.Fatalf("fail to load CA trust %v", sslErr)
+		}
+		connOpts = append(connOpts, grpc.WithTransportCredentials(creds))
+	} else {
+		connOpts = append(connOpts, grpc.WithInsecure())
+	}
+
+	//Dial to server with connOpts
+	conn, err := grpc.Dial("localhost:50051", connOpts...)
 	if err != nil {
 		log.Fatalf("fail to connect server %v", err)
 	}
@@ -23,8 +39,8 @@ func main() {
 
 	c := greetpb.NewGreetServiceClient(conn)
 
-	// fmt.Println("Starting a Unary RPC request. . .")
-	// doUnary(c)
+	fmt.Println("Starting a Unary RPC request. . .")
+	doUnary(c)
 
 	// fmt.Println("Starting a Server Streaming RPC request. . .")
 	// doServerStreaming(c)
@@ -36,9 +52,9 @@ func main() {
 	// doBiDiStreaming(c)
 
 	//Should complete
-	doUnaryWithDeadline(c, 5*time.Second)
+	// doUnaryWithDeadline(c, 5*time.Second)
 	//Should timeout
-	doUnaryWithDeadline(c, 1*time.Second)
+	// doUnaryWithDeadline(c, 1*time.Second)
 }
 
 func doServerStreaming(c greetpb.GreetServiceClient) {

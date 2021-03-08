@@ -12,6 +12,7 @@ import (
 	"github.com/thogtq/golang-grpc-greet-demo/m/v2/greet/greetpb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 )
 
@@ -19,13 +20,19 @@ type server struct{}
 
 func main() {
 	// fmt.Println("Hello World")
+	const certFile = "../../ssl/server.crt"
+	const keyFile = "../../ssl/server.pem"
+	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+	if err != nil {
+		log.Fatalf("fail to load cerificate key %v", err)
+	}
 	lis, err := net.Listen("tcp", "0.0.0.0:50051")
 	if err != nil {
 		log.Fatalf("fail to listen port %v", err)
 	}
 	defer lis.Close()
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(grpc.Creds(creds))
 	greetpb.RegisterGreetServiceServer(s, &server{})
 
 	if err := s.Serve(lis); err != nil {
